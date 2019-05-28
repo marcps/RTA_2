@@ -56,6 +56,16 @@ double D_calculate(int posf,int posi, double *Tempr)
 	return exp(-sum);
 }
 
+void D_matrix(int currPos, double **D, double *Tempr)
+{
+	int i,j,sum;
+	//This calculates all the necessary columns for the row currPos
+	//starting from D[currPos][currPos] up to D[currPos][1]????
+	for(i=0;i<currPos;i++)
+	{
+		D[currPos][currPos-i]=D_calculate(currPos,i,Tempr[i]);//NO ESTA BE
+	}
+}
 int main (int argc, char* argv[])
 {
 	int i,j;
@@ -83,7 +93,6 @@ int main (int argc, char* argv[])
 	/*%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
 	Energy[0]=ENERGY_0;
 	Tempr[0]=Tempr(Energy[0]);
-	D_write_column(D,0,ENERGY_0);
 	/*%%%%%%%%%%%%%%%%%%%%%%% TIME INTEGRATION %%%%%%%%%%%%%%%%%%%%*/
 	for(i=1;i<NITER;i++)
 	{
