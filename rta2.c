@@ -41,7 +41,7 @@ double DD(int posf,int posi, double *Tempr)
 	double dT=(TAU_F-TAU_0)/NITER;
 	//we cannot sum from the current position because there's no defined
 	//Temperature!!!
-	for (i=posi ; i<posf ; i++)
+	for (i=posi;i<=posf;i++)
 	{
 		sum+=1.0/tau_eq(Tempr[i]);
 	}
@@ -53,7 +53,7 @@ void D_matrix(int currPos, double **D, double *Tempr)
 	int i,j,sum;
 	//This calculates all the necessary columns for the row currPos
 	//starting from D[currPos][currPos] up to D[currPos][1]????
-	for(i=0;i<currPos;i++)
+	for(i=0;i<=currPos;i++)
 	{
 		D[currPos][currPos-i]=DD(currPos,i,Tempr[i]);//NO ESTA BE
 	}
@@ -89,7 +89,7 @@ int main (int argc, char* argv[])
 	for(i=1;i<NITER;i++)
 	{
 		currTau=TAU_0+(i+0.5)dT;
-		D_matrix(i-1,D,Tempr);
+		D_matrix(i-1,D,Tempr); 
 		eny_1=D[i-1][i-1]*Ht(ex(currTau));
 		eny_2=0;
 		for(j=0;j<i-1;j++)
