@@ -3,15 +3,22 @@
 #include <stdio.h>
 #include <string.h>
 double const PI=3.14159265359;//definition of PI
-double const TAU_0=0.1;
-double const TAU_F=100;
-double const EX_0=1;
-double const ENERGY_0=1;
+double const TAU_0=0.25;
+double const TAU_F=10;
+
+double const XI_0=0;
+double const T_0=3/2.0;
+double const ENERGY_0=3/(PI*PI*T_0*T_0*T_0*T_0);
+
+double const ETA_EQ=1/(4*PI);
+double const GAMMA_EQ=5/ETA_EQ;
+
 int const NITER=10000;
+
 
 double ex(double tau)
 {
-	return (1+EX_0)*(tau*tau/TAU_0/TAU_0);
+	return (1+XI_0)*(tau*tau/TAU_0/TAU_0);
 }
 
 double Temp(double E)
@@ -22,8 +29,7 @@ double Temp(double E)
 
 double tau_eq (double tempr)
 {
-	double gamma=1.0;
-	return gamma/tempr;
+	return GAMMA_EQ/tempr;
 }
 
 double Ht(double exx)
@@ -31,6 +37,16 @@ double Ht(double exx)
 	double a=(PI/180)*atan(sqrt(exx))/sqrt(exx);
 	double b=1/(1+exx);
 	return 0.5*(b+a);
+}
+
+double Ht_0()
+{
+	if(XI_0==0){
+		return (double)1;
+	}
+	else{
+		return 0.5*((PI/180)*atan(sqrt(XI_0))/sqrt(XI_0)+(1/(1+XI_0)));
+	}
 }
 
 void D_matrix(int currPos,double *Dv,double **D,double *Tempr)
@@ -47,6 +63,7 @@ void D_matrix(int currPos,double *Dv,double **D,double *Tempr)
 void D_evolve(int currPos, double *Dv, double *Tempr)
 {
 	if(currPos==0){
+		//In the first iteration, exp(0)=1
 		Dv[0]=(double)1;
 	}
 	int i,j,sum;
@@ -122,7 +139,7 @@ int main (int argc, char* argv[])
 		currTau=TAU_0+(i+0.5)*dT;
 		D_evolve(i, Dv, Tempr);
 		D_matrix(i,Dv,D,Tempr);
-		S_t=D[i][i]*Ht(ex(currTau));
+		S_t=D[i][i]*Ht(ex(currTau))/Ht_0();
 		F_t=0;
 		for(j=0;j<=i;j++)
 		{
