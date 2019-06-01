@@ -2,23 +2,24 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
 double const PI=3.14159265359;//definition of PI
 double const TAU_0=0.25;
 double const TAU_F=10;
 
 double const XI_0=0;
-double const T_0=3/2.0;
+double const T_0=600;
 double const ENERGY_0=3/(PI*PI*T_0*T_0*T_0*T_0);
 
 double const ETA_EQ=1/(4*PI);
 double const GAMMA_EQ=5/ETA_EQ;
 
-int const NITER=10000;
+int const NITER=30000;
 
 
 double ex(double tau)
 {
-	return (1+XI_0)*(tau*tau/TAU_0/TAU_0);
+	return (1+XI_0)*(tau*tau/(TAU_0*TAU_0))-1;
 }
 
 double Temp(double E)
@@ -32,10 +33,14 @@ double tau_eq (double tempr)
 	return GAMMA_EQ/tempr;
 }
 
-double Ht(double exx)
+double Ht(double x)
 {
-	double a=(PI/180)*atan(sqrt(exx))/sqrt(exx);
-	double b=1/(1+exx);
+	if(x==0.000000000000000){
+		//This if ensures the 0/0 case!
+		return (double)1;
+	}
+	double a=atan(sqrt(x))/sqrt(x);
+	double b=1.0/(1.0+x);
 	return 0.5*(b+a);
 }
 
@@ -66,10 +71,10 @@ void D_evolve(int currPos, double *Dv, double *Tempr)
 		//In the first iteration, exp(0)=1
 		Dv[0]=(double)1;
 	}
-	int i,j,sum;
-	double dT;
-	dT=(TAU_F-TAU_0)/NITER;
-	Dv[currPos]=Dv[currPos-1]*exp(-dT/tau_eq(Tempr[currPos]));//This is indeed Tempr[currPos] because it is defined that way!
+	else{
+		double dT=(TAU_F-TAU_0)/NITER;
+		Dv[currPos]=Dv[currPos-1]*exp(-dT/tau_eq(Tempr[currPos]));//This is indeed Tempr[currPos] because it is defined that way!
+	}
 }
 
 void debug(double a,char* name){
@@ -143,23 +148,35 @@ int main (int argc, char* argv[])
 		F_t=0;
 		for(j=0;j<=i;j++)
 		{
-			currTauPrime=currTau-(j+0.5)*dT;
-			F_t+=D[i][j]*Energy[j] * Ht((currTau/currTauPrime)*(currTau/currTauPrime)-1) * dT/tau_eq(Tempr[i]);
+			currTauPrime=TAU_0+(j+0.5)*dT;
+			F_t+=D[i][j]*Energy[j]*Ht((currTau/currTauPrime)*(currTau/currTauPrime)-1)*dT/tau_eq(Tempr[i]);
 		}
-		printf("Energy=%.15f  Temperature=%.15f\n",Energy[i],Tempr[i]);
 
 		Energy[i+1]=S_t+F_t;
 		Tempr[i+1]=Temp(Energy[i]);
 		deriE[i]=(Energy[i+1]-Energy[i])/dT;
 		deriT[i]=(Tempr[i+1]-Tempr[i])/dT;
+
+		printf("Energy=%.15f  ;deriE=%.15f  ;Temperature=%.15f   ;deriT=%.15f\n",Energy[i],deriE[i],Tempr[i],deriT[i]);
 		//sn=fabs(currTau*deriE[i]/(Energy[i]+ /\/\/\/\/\/\/\/\/\/\/\/\/\ WE LACK A PRESSURE EXPRESSION!!!! /\/\/\/\/\/\/\/\/\/\/\
 		//%%%%%%%%%%%%%%%% FILE PRINTING %%%%%%%%%%%%%%%%%%%%%%%%%%%
 		print_to_file(fp,currTau*Tempr[i],Tempr[i]*pow(currTau,1/3));
-		print_to_file(fp1,currTau*Tempr[i],1); //HERE GOES SN!!! /\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
-		print_to_file(fp2,currTau*Temprr[i],currTau*deriT[i]/Tempr[i]);
-		print_to_file(fp3,currTau*Tempr[i],deriE[i]/Energy[i]);
+		print_to_file(fp1,currTau*Tempr[i],1); /*HERE GOES SN!!! /\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\*/
+		//print_to_file(fp2,currTau*Tempr[i],currTau*deriT[i]/Tempr[i]);
+		print_to_file(fp2,currTau,Energy[i]);
+		//print_to_file(fp3,currTau*Tempr[i],deriE[i]/Energy[i]);
+		print_to_file(fp3,currTau,Tempr[i]);
 		//add time functionality as well.
 	}
+	fclose(fp);
+	fclose(fp1);
+	fclose(fp2);
+	fclose(fp3);
+	free(Tempr);
+	free(Dv);
+	free(D);
+	free(deriT);
+	free(Energy);
+	free(deriE);
 	return 0;
 }
-
