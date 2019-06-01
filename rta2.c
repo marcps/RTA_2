@@ -14,7 +14,7 @@ double const ENERGY_0=3/(PI*PI*T_0*T_0*T_0*T_0);
 double const ETA_EQ=1/(4*PI);
 double const GAMMA_EQ=5/ETA_EQ;
 
-int const NITER=30000;
+int const NITER=100;
 
 
 double ex(double tau)
@@ -90,9 +90,9 @@ void print_to_file(FILE* f,double x, double y)
 int main (int argc, char* argv[])
 {
 	int i,j;
-	double **D,*Tempr,*deriT, *Energy,*deriE,*Dv;
+	double **D,*Tempr,*deriT, *Energy,*deriE,*Dv, *Pressure_L, *Pressure_T;
 	double currTau,currTauPrime,dT=(TAU_F-TAU_0)/NITER;
-	double S_t,F_t,sn;
+	double S_t,F_t,sn,Py;
 	 //-----------------------FILE INIT-----------------------------
         if(argc<5)
         {
@@ -101,9 +101,9 @@ int main (int argc, char* argv[])
                 printf("<1>.dat <2>.dat <3>.dat <4>.dat\n\n\n");
                 return 1;
         }
-        FILE *fp,*fp1,*fp2,*fp3;
+        FILE *fp,*fp1,*fp2,*fp3,*fp4;
 
-        if(strcmp(argv[1],argv[2])==0 || strcmp(argv[2],argv[3])==0 || strcmp(argv[1],argv[3])==0)
+        if(strcmp(argv[1],argv[2])==0 || strcmp(argv[2],argv[3])==0 || strcmp(argv[1],argv[3])==0 || strcmp(argv[1],argv[4])==0 || strcmp(argv[2],argv[4])==0 || strcmp(argv[3],argv[4])==0 || strcmp(argv[1],argv[5])==0||strcmp(argv[2],argv[5])==0||strcmp(argv[3],argv[5])==0||strcmp(argv[4],argv[5])==0)
         {
                 printf("\n[!]ERROR. Filenames must be DIFFERENT!\n\n");
                 return 2;
@@ -112,6 +112,7 @@ int main (int argc, char* argv[])
         fp1=fopen(argv[2],"w");
         fp2=fopen(argv[3],"w");
         fp3=fopen(argv[4],"w");
+	fp4=fopen(argv[5],"w");
         //-------------------------------------------------------------
 
 	/*%%%%%%%%%%%%%%%%%%%%%%% D matrix initialization%%%%%%%%%%%%%%%*/
@@ -135,6 +136,12 @@ int main (int argc, char* argv[])
 	deriT=(double *)malloc((NITER+1)*sizeof(double));
 	Energy=(double *)malloc((NITER+1)*sizeof(double));
 	deriE=(double *)malloc((NITER+1)*sizeof(double));
+	Pressure_L=(double *)malloc((NITER+1)*sizeof(double));
+	Pressure_T=(double *)malloc((NITER+1)*sizeof(double));
+	if(Dv==NULL||Tempr==NULL||deriT==NULL||Energy==NULL||deriE==NULL||Pressure_L==NULL||Pressure_T==NULL){
+		printf("NOT Enough memory!\n Exitting...\n");
+		return 6;
+	}
 	/*%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
 	Energy[0]=ENERGY_0;
 	Tempr[0]=Temp(Energy[0]);
@@ -153,19 +160,22 @@ int main (int argc, char* argv[])
 		}
 
 		Energy[i+1]=S_t+F_t;
-		Tempr[i+1]=Temp(Energy[i]);
+		Tempr[i+1]=Temp(Energy[i+1]);
 		deriE[i]=(Energy[i+1]-Energy[i])/dT;
 		deriT[i]=(Tempr[i+1]-Tempr[i])/dT;
 
-		printf("Energy=%.15f  ;deriE=%.15f  ;Temperature=%.15f   ;deriT=%.15f\n",Energy[i],deriE[i],Tempr[i],deriT[i]);
-		//sn=fabs(currTau*deriE[i]/(Energy[i]+ /\/\/\/\/\/\/\/\/\/\/\/\/\ WE LACK A PRESSURE EXPRESSION!!!! /\/\/\/\/\/\/\/\/\/\/\
+		Py=currTau*deriE[i]+4*Energy[i]/3;
+		Pressure_L[i]=Energy[i+1]/(double)3 - Py;
+		Pressure_T[i]=Energy[i+1]/(double)3 + Py/(double)2;
+
+		sn=fabs(currTau*deriE[i]/(Energy[i]+Pressure_L[i]))-(double)1; //This has to be a very small number
+		printf("Energy=%.15f  ;deriE=%.15f  ;Temperature=%.15f   ;deriT=%.15f  ;SN = %.15f\n",Energy[i],deriE[i],Tempr[i],deriT[i], sn);
 		//%%%%%%%%%%%%%%%% FILE PRINTING %%%%%%%%%%%%%%%%%%%%%%%%%%%
 		print_to_file(fp,currTau*Tempr[i],Tempr[i]*pow(currTau,1/3));
-		print_to_file(fp1,currTau*Tempr[i],1); /*HERE GOES SN!!! /\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\*/
-		//print_to_file(fp2,currTau*Tempr[i],currTau*deriT[i]/Tempr[i]);
-		print_to_file(fp2,currTau,Energy[i]);
-		//print_to_file(fp3,currTau*Tempr[i],deriE[i]/Energy[i]);
+		print_to_file(fp1,currTau*Tempr[i],sn);
+		print_to_file(fp2,currTau*Tempr[i],deriT[i]);
 		print_to_file(fp3,currTau,Tempr[i]);
+		print_to_file(fp4,currTau,Pressure_L[i]/Pressure_T[i]);
 		//add time functionality as well.
 	}
 	fclose(fp);
@@ -178,5 +188,7 @@ int main (int argc, char* argv[])
 	free(deriT);
 	free(Energy);
 	free(deriE);
+	free(Pressure_T);
+	free(Pressure_L);
 	return 0;
 }
