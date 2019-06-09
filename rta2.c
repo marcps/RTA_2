@@ -2,35 +2,29 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
 double const PI=3.14159265359;//definition of PI
 double const TAU_0=0.25;
-double const TAU_F=10;
-
-double const XI_0=0;
-double const T_0=600;
-double const ENERGY_0=3/(PI*PI*T_0*T_0*T_0*T_0);
-
-double const ETA_EQ=1/(4*PI);
-double const GAMMA_EQ=5/ETA_EQ;
-
-int const NITER=100;
-
+double const TAU_F=20.0;
+double const XI_0=0.000000000000000;  // Momentum-space anisotrpy
+double const T_0=1.5; // Mev%c
+double const ETA=(double)1/((double)4*3.14159265359);
+double const TSTEP=0.005;
 
 double ex(double tau)
 {
-	return (1+XI_0)*(tau*tau/(TAU_0*TAU_0))-1;
+	return ((1+XI_0)*(tau*tau/(TAU_0*TAU_0)))-1.0;
 }
 
 double Temp(double E)
 {
         /*Returns the TEMPERATURE*/
-        return sqrt(PI*sqrt(E/3));
+        return sqrt(sqrt(E*3.0)/PI);
 }
 
 double tau_eq (double tempr)
 {
-	return GAMMA_EQ/tempr;
+	double gamma_eq=5.0/ETA;
+	return gamma_eq/tempr;
 }
 
 double Ht(double x)
@@ -46,11 +40,11 @@ double Ht(double x)
 
 double Ht_0()
 {
-	if(XI_0==0){
+	if(XI_0==0.000000000000000){
 		return (double)1;
 	}
 	else{
-		return 0.5*((PI/180)*atan(sqrt(XI_0))/sqrt(XI_0)+(1/(1+XI_0)));
+		return 0.5*(atan(sqrt(XI_0))/sqrt(XI_0)+(1/(1+XI_0)));
 	}
 }
 
@@ -72,7 +66,7 @@ void D_evolve(int currPos, double *Dv, double *Tempr)
 		Dv[0]=(double)1;
 	}
 	else{
-		double dT=(TAU_F-TAU_0)/NITER;
+		double dT=TSTEP;
 		Dv[currPos]=Dv[currPos-1]*exp(-dT/tau_eq(Tempr[currPos]));//This is indeed Tempr[currPos] because it is defined that way!
 	}
 }
@@ -89,10 +83,12 @@ void print_to_file(FILE* f,double x, double y)
 
 int main (int argc, char* argv[])
 {
+	double Energy_0=(PI*PI*T_0*T_0*T_0*T_0)/(double)3;
 	int i,j;
 	double **D,*Tempr,*deriT, *Energy,*deriE,*Dv, *Pressure_L, *Pressure_T;
-	double currTau,currTauPrime,dT=(TAU_F-TAU_0)/NITER;
-	double S_t,F_t,sn,Py;
+	double currTau,currTauPrime,dT=TSTEP;
+	int niter=(int)(TAU_F-TAU_0)/TSTEP;
+	double S_t,F_t,sn,Py,etaEff;
 	 //-----------------------FILE INIT-----------------------------
         if(argc<5)
         {
@@ -116,47 +112,47 @@ int main (int argc, char* argv[])
         //-------------------------------------------------------------
 
 	/*%%%%%%%%%%%%%%%%%%%%%%% D matrix initialization%%%%%%%%%%%%%%%*/
-	D = (double **)malloc((NITER+1)*sizeof(double));
+	D = (double **)malloc((niter+1)*sizeof(double));
         if(D==NULL)
         {
                 printf("NOT Enough memory!\n Exitting...\n");
                 return 4;
         }
-        for(i=0;i<NITER;i++)
+        for(i=0;i<niter;i++)
         {
-                D[i]=(double *)malloc((NITER+1)*sizeof(double));
+                D[i]=(double *)malloc((niter+1)*sizeof(double));
                 if(D[i]==NULL)
                 {
                         printf("NOT Enough memory!\n Exitting...\n");
                         return 5;
                 }
         }
-	Dv=(double *)malloc((NITER+1)*sizeof(double));
-	Tempr=(double *)malloc((NITER+1)*sizeof(double));
-	deriT=(double *)malloc((NITER+1)*sizeof(double));
-	Energy=(double *)malloc((NITER+1)*sizeof(double));
-	deriE=(double *)malloc((NITER+1)*sizeof(double));
-	Pressure_L=(double *)malloc((NITER+1)*sizeof(double));
-	Pressure_T=(double *)malloc((NITER+1)*sizeof(double));
+	Dv=(double *)malloc((niter+1)*sizeof(double));
+	Tempr=(double *)malloc((niter+1)*sizeof(double));
+	deriT=(double *)malloc((niter+1)*sizeof(double));
+	Energy=(double *)malloc((niter+1)*sizeof(double));
+	deriE=(double *)malloc((niter+1)*sizeof(double));
+	Pressure_L=(double *)malloc((niter+1)*sizeof(double));
+	Pressure_T=(double *)malloc((niter+1)*sizeof(double));
 	if(Dv==NULL||Tempr==NULL||deriT==NULL||Energy==NULL||deriE==NULL||Pressure_L==NULL||Pressure_T==NULL){
 		printf("NOT Enough memory!\n Exitting...\n");
 		return 6;
 	}
 	/*%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
-	Energy[0]=ENERGY_0;
+	Energy[0]=Energy_0;
 	Tempr[0]=Temp(Energy[0]);
 	/*%%%%%%%%%%%%%%%%%%%%%%% TIME INTEGRATION %%%%%%%%%%%%%%%%%%%%*/
-	for(i=0;i<NITER;i++)
+	for(i=0;i<niter;i++)
 	{
 		currTau=TAU_0+(i+0.5)*dT;
 		D_evolve(i, Dv, Tempr);
 		D_matrix(i,Dv,D,Tempr);
-		S_t=D[i][i]*Ht(ex(currTau))/Ht_0();
-		F_t=0;
+		F_t=D[i][0]*Ht(ex(currTau))/Ht_0();
+		S_t=0;
 		for(j=0;j<=i;j++)
 		{
 			currTauPrime=TAU_0+(j+0.5)*dT;
-			F_t+=D[i][j]*Energy[j]*Ht((currTau/currTauPrime)*(currTau/currTauPrime)-1)*dT/tau_eq(Tempr[i]);
+			S_t+=D[i][j]*Energy[j]*Ht((currTau/currTauPrime)*(currTau/currTauPrime)-1)*dT/tau_eq(Tempr[i]);
 		}
 
 		Energy[i+1]=S_t+F_t;
@@ -168,14 +164,17 @@ int main (int argc, char* argv[])
 		Pressure_L[i]=Energy[i+1]/(double)3 - Py;
 		Pressure_T[i]=Energy[i+1]/(double)3 + Py/(double)2;
 
-		sn=fabs(currTau*deriE[i]/(Energy[i]+Pressure_L[i]))-(double)1; //This has to be a very small number
-		printf("Energy=%.15f  ;deriE=%.15f  ;Temperature=%.15f   ;deriT=%.15f  ;SN = %.15f\n",Energy[i],deriE[i],Tempr[i],deriT[i], sn);
+		//This has to be a very small number
+		sn=fabs(currTau*deriE[i]/(Energy[i]+Pressure_L[i]))-(double)1;
+		etaEff=9.0*currTau*currTau/4.0*(deriT[i]+Tempr[i+1]/(3.0*currTau));
+
+		printf("i=%d ;Energy=%.15f  ;deriE=%.15f  ;Temperature=%.15f   ;deriT=%.15f  ;SN = %.15f\n",i,Energy[i],deriE[i],Tempr[i],deriT[i], sn);
 		//%%%%%%%%%%%%%%%% FILE PRINTING %%%%%%%%%%%%%%%%%%%%%%%%%%%
-		print_to_file(fp,currTau*Tempr[i],Tempr[i]*pow(currTau,1/3));
-		print_to_file(fp1,currTau*Tempr[i],sn);
-		print_to_file(fp2,currTau*Tempr[i],deriT[i]);
-		print_to_file(fp3,currTau,Tempr[i]);
-		print_to_file(fp4,currTau,Pressure_L[i]/Pressure_T[i]);
+		print_to_file(fp,currTau,etaEff);
+		print_to_file(fp1,currTau,sn);
+		print_to_file(fp2,currTau,Pressure_L[i]/Pressure_T[i]);
+		print_to_file(fp3,currTau,Energy[i+1]*pow(currTau/TAU_0,3/(double)2)*TAU_0*TAU_0*TAU_0*TAU_0*TAU_0);
+		//print_to_file(fp4,currTau,Pressure_L[i]/Pressure_T[i]);
 		//add time functionality as well.
 	}
 	fclose(fp);
